@@ -21,18 +21,19 @@ namespace Server.Extractors
         {
             Type[] parameters = GetParameters(type);
             ConstructorInfo constructor = GetConstructorInfo(type, parameters);
+            List<Expression> expressionList = GetExpressions(parameters, types);
+
+            Expression<Func<object>> expression;
             if (arguments?.Length > 0)
             {
-
-                List<Expression> expressionList = GetExpressions(parameters, types);
-
-                return (Func<object>)Expression.Lambda(typeof(Func<object>),
-                    Expression.New(constructor!, expressionList))
-                .Compile();
+                expression = Expression.Lambda<Func<object>>(Expression.New(constructor, expressionList));
             }
-            return (Func<object>)Expression.Lambda(typeof(Func<object>),
-                                                   Expression.New(constructor!))
-                                 .Compile();
+            else
+            {
+                expression = Expression.Lambda<Func<object>>(Expression.New(constructor));
+            }
+
+            return expression.Compile();
         }
         private List<Expression> GetExpressions(Type[]? arguments, Dictionary<Type, Type> types)
         {
@@ -71,13 +72,12 @@ namespace Server.Extractors
         }
         private Type[] GetParameters(Type type)
         {
-            ParameterInfo[]? parameters = type.GetConstructors()?.FirstOrDefault()?.GetParameters();
-            Type[] types = new Type[parameters!.Length];
-            for (int parametr = 0; parametr < parameters.Length; parametr++)
+            var constructor = type.GetConstructors().FirstOrDefault();
+            if (constructor != null)
             {
-                types[parametr] = parameters[parametr].ParameterType;
+                return constructor.GetParameters().Select(param => param.ParameterType).ToArray();
             }
-            return types;
+            return Array.Empty<Type>();
         }
 
     }

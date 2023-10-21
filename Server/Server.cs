@@ -21,7 +21,7 @@ namespace Server
             while (true)
             {
                 TcpClient client = tcpListener.AcceptTcpClient();
-                _ = ProcessClient(client);
+                _ = ProcessClientAsync(client);
             }
         }
 
@@ -32,17 +32,21 @@ namespace Server
             while (true)
             {
                 TcpClient client = await tcpListener.AcceptTcpClientAsync();
-                _ = ProcessClient(client);
+                _ = ProcessClientAsync(client);
             }
         }
 
-        private async ValueTask ProcessClient(TcpClient client)
+        private async ValueTask ProcessClientAsync(TcpClient client)
         {
             using (client)
             using (NetworkStream stream = client.GetStream())
             using (StreamReader reader = new(stream))
             {
                 string? firstLine = await reader.ReadLineAsync();
+                if (string.IsNullOrEmpty(firstLine))
+                {
+                    return;
+                }
                 //TODO: Handling other HTTP methods
                 //POST: Content-Length: 
                 for (string? line = null; line != string.Empty; line = await reader.ReadLineAsync()) { };
