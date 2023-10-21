@@ -42,7 +42,7 @@ namespace Server.Handlers
             ResponseWriter responseWriter = new();
             string methodName = request.Path;
 
-            if (_routeDataProcessor.TryGetAttribute(request, out Attribute? attribute))
+            if (_routeDataProcessor.TryGetHttpAttribute(request, out Attribute? attribute))
             {
                 HttpGetAttribute? httpGetAttribute = attribute as HttpGetAttribute;
                 methodName = "Users/" + httpGetAttribute?.Path;

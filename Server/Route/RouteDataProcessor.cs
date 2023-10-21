@@ -46,7 +46,7 @@ namespace Server.Route
             return data;
         }
 
-        public bool TryGetAttribute(Request request, out Attribute? attribute)
+        public bool TryGetHttpAttribute(Request request, out Attribute? attribute)
         {
             attribute = null;
 
