@@ -1,7 +1,9 @@
 ﻿using Newtonsoft.Json;
+using Server.Attributes;
 using Server.Extractors;
 using Server.Interfaces;
 using Server.Interfaces.HandlersAndControllers;
+using Server.Route;
 using Server.Writers;
 using System.Net;
 using System.Reflection;
@@ -10,87 +12,58 @@ namespace Server.Handlers
 {
     public class WebApiHandler : IHandler, IDependencyService
     {
-        private readonly Dictionary<string, Func<object[], object?>> _routes;
-        private readonly Dictionary<Type, Type> _types;
-        private readonly InstanceCreator _instanceCreator;
+        #region fields and ctor
+        private readonly RouteRegistry _routeRegistry;
+        private readonly RouteDataProcessor _routeDataProcessor;
         public WebApiHandler(Assembly controllersAssembly)
         {
-            _routes = controllersAssembly.GetTypes()
-                .Where(type => typeof(IController).IsAssignableFrom(type))
-                .SelectMany(Controller => Controller.GetMethods().Where(method => method.DeclaringType != typeof(object))
-                .Select(Method => new
-                {
-                    Controller,
-                    Method
-                }))
-                .ToDictionary(
-                key => GetPath(key.Controller, key.Method),
-                value => GetEndpoint(value.Controller, value.Method)
-                );
-
-            _types = new Dictionary<Type, Type>();
-            _instanceCreator = new InstanceCreator();
+            _routeRegistry = new RouteRegistry(controllersAssembly);
+            _routeDataProcessor = new RouteDataProcessor(_routeRegistry);
         }
+        #endregion
 
+        #region Handle
         public void Handle(Stream stream, Request request)
         {
             ResponseWriter responseWriter = new();
-            if (!_routes.TryGetValue(request.Path, out Func<object[], object?>? func))
+            if (!_routeRegistry.TryGetRoute(request.Path, out Func<object[], object?>? func))
             {
                 responseWriter.Write(HttpStatusCode.NotFound, stream);
             }
             else
             {
                 responseWriter.Write(HttpStatusCode.OK, stream);
-                WriteControllerResponse(func(new object[] { })!, stream);
+                WriteControllerResponse(func(new object[] { }), stream);
             }
         }
 
         public async Task HandleAsync(Stream stream, Request request)
         {
             ResponseWriter responseWriter = new();
-            if (!_routes.TryGetValue(request.Path, out Func<object[], object?>? func))
+            string methodName = request.Path;
+
+            if (_routeDataProcessor.TryGetAttribute(request, out Attribute? attribute))
+            {
+                HttpGetAttribute? httpGetAttribute = attribute as HttpGetAttribute;
+                methodName = "Users/" + httpGetAttribute?.Path;
+            }
+
+            if (!_routeRegistry.TryGetRoute(methodName, out Func<object[], object?>? func))
             {
                 await responseWriter.WriteAsync(HttpStatusCode.NotFound, stream);
             }
             else
             {
                 await responseWriter.WriteAsync(HttpStatusCode.OK, stream);
-                await WriteControllerResponseAsync(func(new object[] { })!, stream);
+                object[]? data = _routeDataProcessor.GetData(request, attribute);
+                await WriteControllerResponseAsync(func(data!),
+                                                   stream);
             }
         }
+        #endregion
 
-        public void AddTransient<TInterface, TType>() where TInterface : class where TType : class
-        {
-            AddTransient(typeof(TInterface), typeof(TType));
-        }
-
-        public void AddTransient(Type typeInterface, Type type)
-        {
-            _types.Add(typeInterface, type);
-        }
-
-        private Func<object[], object?> GetEndpoint(Type controller, MethodInfo method)
-        {
-            ParameterInfo[]? parameters = controller.GetConstructors()?.FirstOrDefault()?.GetParameters();
-            Type[] types = new Type[parameters!.Length];
-            for (int parametr = 0; parametr < parameters.Length; parametr++)
-            {
-                types[parametr] = parameters[parametr].ParameterType;
-            }
-            return (data) => method.Invoke(_instanceCreator.CreateInstance(controller, types, _types), data);
-        }
-
-        private string GetPath(Type controller, MethodInfo method)
-        {
-            string name = controller.Name;
-            if (name.EndsWith("controller", StringComparison.InvariantCultureIgnoreCase))
-            {
-                name = name[..^"controller".Length];
-            }
-            return method.Name.Equals("Index", StringComparison.InvariantCultureIgnoreCase) ? "/" + name : "/" + name + "/" + method.Name;
-        }
-        private void WriteControllerResponse(object response, Stream stream)
+        #region Write reponse
+        private void WriteControllerResponse(object? response, Stream stream)
         {
             if (response is string str)
             {
@@ -107,7 +80,7 @@ namespace Server.Handlers
             }
         }
 
-        private async Task WriteControllerResponseAsync(object response, Stream stream)
+        private async Task WriteControllerResponseAsync(object? response, Stream stream)
         {
             if (response is string str)
             {
@@ -129,5 +102,18 @@ namespace Server.Handlers
                 await WriteControllerResponseAsync(JsonConvert.SerializeObject(response), stream);
             }
         }
+        #endregion
+        #region TODO container 
+
+        public void AddTransient<TInterface, TType>() where TInterface : class where TType : class
+        {
+            AddTransient(typeof(TInterface), typeof(TType));
+        }
+
+        public void AddTransient(Type typeInterface, Type type)
+        {
+            _routeRegistry.AddTransient(typeInterface, type);
+        }
+        #endregion
     }
 }

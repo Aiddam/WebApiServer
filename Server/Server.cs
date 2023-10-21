@@ -54,7 +54,7 @@ namespace Server
                 {
                     await _handler.HandleAsync(stream, request);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     await Console.Out.WriteLineAsync(ex.ToString());
                 }

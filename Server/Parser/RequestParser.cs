@@ -7,8 +7,10 @@ namespace Server.Parser
         public Request Parse(string header)
         {
             string[] split = header.Trim().Split(" ");
+            string method = split[0];
+            string[] partUrl = split[1].Split("/").Skip(1).ToArray();
 
-            return new Request(split[1], GetMethod(split[0]));
+            return new Request(split[1], GetControllerName(partUrl), GetMethod(method), GetMethodName(partUrl), GetDataFromHeader(partUrl));
         }
 
         private static HttpMethod GetMethod(string method)
@@ -22,6 +24,22 @@ namespace Server.Parser
                 "HEAD" => HttpMethod.Get,
                 _ => HttpMethod.Post,
             };
+        }
+
+        private static string GetControllerName(string[] pathArray)
+        {
+            return pathArray[0] + "Controller";
+        }
+        private static string GetMethodName(string[] pathArray)
+        {
+            return pathArray.Length < 2 ? pathArray[0] : pathArray[1];
+        }
+
+        private static object[] GetDataFromHeader(string[] header)
+        {
+            IEnumerable<string> data = header.Skip(2);
+
+            return data.ToArray();
         }
     }
 }
