@@ -13,11 +13,11 @@ namespace WebServer.Repositories
         {
             return new User[]
             {
-                new User("Anton", "Sharlai", 19),
-                new User("Evgeniy", "Zhuravel", 19),
-                new User("Alex", "Tyrchin", 19),
-                new User("Dima", "Gorbotenko", 19),
-                new User("Pavel", "Archipov", 20)
+                new User("Anton", "Sharlai", 19, 1),
+                new User("Evgeniy", "Zhuravel", 19, 2),
+                new User("Alex", "Tyrchin", 19, 3),
+                new User("Dima", "Gorbotenko", 19, 4),
+                new User("Pavel", "Archipov", 20, 5)
             };
         }
     }
