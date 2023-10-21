@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Server.Attributes\Server.Attributes.csproj" />
     <ProjectReference Include="..\Server.Interfaces\Server.Interfaces.csproj" />
     <ProjectReference Include="..\Server.Models\Server.Models.csproj" />
   </ItemGroup>

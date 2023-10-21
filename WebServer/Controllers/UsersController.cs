@@ -1,4 +1,5 @@
-﻿using Server.Interfaces.HandlersAndControllers;
+﻿using Server.Attributes;
+using Server.Interfaces.HandlersAndControllers;
 using WebServer.Models;
 using WebServer.Repositories;
 
@@ -21,6 +22,16 @@ namespace WebServer.Controllers
             {
                 User[] users = _userRepository.GetUsers();
                 return users;
+            });
+        }
+
+        [HttpGet("User/{id}")]
+        public Task<User>? GetUser(int id)
+        {
+            return Task.Run(() =>
+            {
+                User[] users = _userRepository.GetUsers();
+                return users.FirstOrDefault(u => u.Id == id);
             });
         }
     }

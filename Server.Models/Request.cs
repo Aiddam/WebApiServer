@@ -1,1 +1,1 @@
-﻿public record Request(string Path, HttpMethod Method);
+﻿public record Request(string Path, string ControllerName ,HttpMethod Method, string MethodName, object[]? Data = null);

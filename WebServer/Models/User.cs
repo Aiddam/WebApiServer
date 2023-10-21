@@ -1,5 +1,5 @@
 ﻿
 namespace WebServer.Models
 {
-    public record User(string Name, string Surname, int Age);
+    public record User(string Name, string Surname, int Age, int Id);
 }

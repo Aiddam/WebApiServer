@@ -9,7 +9,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Server.Interfaces", "Server
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Server.Models", "Server.Models\Server.Models.csproj", "{C282F6F5-58A5-4F79-A752-2F3C4C4CF8B5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebServer", "WebServer\WebServer.csproj", "{5FB4C093-AAD0-46E0-987E-8B4EA3CB7E6E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebServer", "WebServer\WebServer.csproj", "{5FB4C093-AAD0-46E0-987E-8B4EA3CB7E6E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3B0874B9-D874-4566-A0D8-4CCD87FEB89B} = {3B0874B9-D874-4566-A0D8-4CCD87FEB89B}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server.Attributes", "Server.Attributes\Server.Attributes.csproj", "{3B0874B9-D874-4566-A0D8-4CCD87FEB89B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +38,10 @@ Global
 		{5FB4C093-AAD0-46E0-987E-8B4EA3CB7E6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FB4C093-AAD0-46E0-987E-8B4EA3CB7E6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FB4C093-AAD0-46E0-987E-8B4EA3CB7E6E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B0874B9-D874-4566-A0D8-4CCD87FEB89B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B0874B9-D874-4566-A0D8-4CCD87FEB89B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B0874B9-D874-4566-A0D8-4CCD87FEB89B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B0874B9-D874-4566-A0D8-4CCD87FEB89B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
