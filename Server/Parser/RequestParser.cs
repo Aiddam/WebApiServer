@@ -26,20 +26,18 @@ namespace Server.Parser
             };
         }
 
-        private static string GetControllerName(string[] pathArray)
+        private string GetControllerName(string[] pathSegments)
         {
-            return pathArray[0] + "Controller";
+            return pathSegments.Length > 0 ? pathSegments[0] + "Controller" : string.Empty;
         }
-        private static string GetMethodName(string[] pathArray)
+        private string GetMethodName(string[] pathSegments)
         {
-            return pathArray.Length < 2 ? pathArray[0] : pathArray[1];
+            return pathSegments.Length > 1 ? pathSegments[1] : string.Empty;
         }
 
-        private static object[] GetDataFromHeader(string[] header)
+        private object[] GetDataFromHeader(string[] pathSegments)
         {
-            IEnumerable<string> data = header.Skip(2);
-
-            return data.ToArray();
+            return pathSegments.Length > 2 ? pathSegments.Skip(2).ToArray() : Array.Empty<object>();
         }
     }
 }
