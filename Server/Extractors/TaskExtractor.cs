@@ -1,35 +1,42 @@
 ﻿using Server.Interfaces;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 
 namespace Server.Extractors
 {
     public class TaskExtractor : IExtractor<Task>
     {
-        private readonly Dictionary<Type, Func<Task, object>> _extractors = new();
+        private readonly ConcurrentDictionary<Type, Func<Task, object>> _extractors = new();
 
         public object? ExtractValue(Task input)
         {
+            if (input == null)
+            {
+                throw new ArgumentNullException(nameof(input));
+            }
             Type taskType = input.GetType();
-            if (!taskType.IsGenericType)
+            if (!taskType.IsGenericType || !input.IsCompleted)
             {
                 return null;
             }
 
-            if (!_extractors.TryGetValue(taskType, out Func<Task, object>? val))
-            {
-                _extractors.Add(taskType, val = CreateExtractor(taskType));
-            }
+            var extractor = _extractors.GetOrAdd(taskType, CreateExtractor);
 
-            return val(input);
+            return extractor(input);
         }
 
         private Func<Task, object> CreateExtractor(Type taskType)
         {
-            ParameterExpression param = Expression.Parameter(typeof(Task));
+            if (!typeof(Task).IsAssignableFrom(taskType))
+            {
+                throw new InvalidOperationException("Invalid task type.");
+            }
+            ParameterExpression param = Expression.Parameter(typeof(Task), "task");
+            UnaryExpression taskCast = Expression.Convert(param, taskType);
+            MemberExpression propertyAccess = Expression.Property(taskCast, "Result");
+            UnaryExpression convertToObj = Expression.Convert(propertyAccess, typeof(object));
 
-            return (Func<Task, object>)Expression.Lambda(typeof(Func<Task, object>),
-                Expression.Convert(Expression.Property(Expression.Convert(param, taskType), "Result"), typeof(object)),
-                param).Compile();
+            return Expression.Lambda<Func<Task, object>>(convertToObj, param).Compile();
         }
     }
 }

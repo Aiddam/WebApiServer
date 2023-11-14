@@ -2,6 +2,7 @@
 using Server.Extractors;
 using Server.Interfaces.HandlersAndControllers;
 using System.Reflection;
+using System.Xml.Linq;
 
 public class RouteRegistry
 {
@@ -38,30 +39,42 @@ public class RouteRegistry
         }
         return (data) => method.Invoke(_instanceCreator.CreateInstance(controller, types, Types), data);
     }
-    private string GetPath(Type controller, MethodInfo method)
+    private string GetPathForInstance(Type controller, MethodInfo method)
     {
-        string name = controller.Name;
-        IEnumerable<Attribute> MethodAtributtes = method.GetCustomAttributes();
-        if (!ControllerMethods.ContainsKey(controller.Name))
+        var controllerName = GetControllerName(controller);
+        var methodName = method.Name;
+        AddControllerMethods(controllerName, methodName, method);
+
+        if (controllerName.EndsWith("controller", StringComparison.InvariantCultureIgnoreCase))
         {
-            _controllerMethods.Add(controller.Name, new Dictionary<string, MethodInfo>());
+            controllerName = controllerName[..^"controller".Length];
         }
-        if (ControllerMethods.TryGetValue(controller.Name, out Dictionary<string, MethodInfo>? methods))
+        var attribute = method.GetCustomAttributes<HttpGetAttribute>().FirstOrDefault();
+
+        var pathSuffix = attribute?.Path ?? methodName;
+
+        return method.Name.Equals("Index", StringComparison.InvariantCultureIgnoreCase) ? "/" + controllerName : $"/{controllerName}/{pathSuffix}".TrimEnd('/');
+    }
+    private string GetControllerName(Type controller)
+    {
+        var name = controller.Name;
+        if (name.EndsWith("Controller", StringComparison.InvariantCultureIgnoreCase))
         {
-            methods.Add(method.Name, method);
+            name = name[..^"Controller".Length];
         }
 
-        if (name.EndsWith("controller", StringComparison.InvariantCultureIgnoreCase))
+        return name;
+    }
+    private void AddControllerMethods(string controllerName, string methodName, MethodInfo method)
+    {
+        if (!ControllerMethods.ContainsKey(controllerName))
         {
-            name = name[..^"controller".Length];
+            _controllerMethods.Add(controllerName, new Dictionary<string, MethodInfo>());
         }
-        if (MethodAtributtes.Any(m => m.GetType() == typeof(HttpGetAttribute)))
+        if (ControllerMethods.TryGetValue(controllerName, out Dictionary<string, MethodInfo>? methods))
         {
-            HttpGetAttribute? getAttribute = method.GetCustomAttribute<HttpGetAttribute>();
-
-            return name + "/" + getAttribute?.Path;
+            methods.Add(methodName, method);
         }
-        return method.Name.Equals("Index", StringComparison.InvariantCultureIgnoreCase) ? "/" + name : "/" + name + "/" + method.Name;
     }
     #endregion
 
@@ -87,7 +100,7 @@ public class RouteRegistry
                 Method
             }))
             .ToDictionary(
-            key => GetPath(key.Controller, key.Method),
+            key => GetPathForInstance(key.Controller, key.Method),
             value => GetEndpoint(value.Controller, value.Method)
             );
     }

@@ -1,4 +1,5 @@
 ﻿using Server.Interfaces.Parsers;
+using Server.Models.Enum;
 
 namespace Server.Parser
 {
@@ -13,16 +14,16 @@ namespace Server.Parser
             return new Request(split[1], GetControllerName(partUrl), GetMethod(method), GetMethodName(partUrl), GetDataFromHeader(partUrl));
         }
 
-        private static HttpMethod GetMethod(string method)
+        private static HttpActionType GetMethod(string method)
         {
             return method.Trim() switch
             {
-                "GET" => HttpMethod.Get,
-                "POST" => HttpMethod.Post,
-                "PUT" => HttpMethod.Put,
-                "DELETE" => HttpMethod.Delete,
-                "HEAD" => HttpMethod.Get,
-                _ => HttpMethod.Post,
+                "GET" => HttpActionType.Get,
+                "POST" => HttpActionType.Post,
+                "PUT" => HttpActionType.Put,
+                "DELETE" => HttpActionType.Delete,
+                "HEAD" => HttpActionType.Get,
+                _ => HttpActionType.Get,
             };
         }
 

@@ -25,7 +25,7 @@ namespace WebServer.Controllers
             });
         }
 
-        [HttpGet("User/{id}")]
+        [HttpGet()]
         public Task<User>? GetUser(int id)
         {
             return Task.Run(() =>
