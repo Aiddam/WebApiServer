@@ -7,6 +7,7 @@ using Server.Route;
 using Server.Writers;
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace Server.Handlers
 {
@@ -23,83 +24,70 @@ namespace Server.Handlers
         #endregion
 
         #region Handle
-        public void Handle(Stream stream, Request request)
-        {
-            ResponseWriter responseWriter = new();
-            if (!_routeRegistry.TryGetRoute(request.Path, out Func<object[], object?>? func))
-            {
-                responseWriter.Write(HttpStatusCode.NotFound, stream);
-            }
-            else
-            {
-                responseWriter.Write(HttpStatusCode.OK, stream);
-                WriteControllerResponse(func(new object[] { }), stream);
-            }
-        }
 
         public async Task HandleAsync(Stream stream, Request request)
         {
             ResponseWriter responseWriter = new();
-            string methodName = request.Path;
+
+            string pattern = "Controller";
+            string controllerName = Regex.Replace(request.ControllerName, pattern, "", RegexOptions.IgnoreCase);
+
+            var methodName = ResolveMethodName(request);
 
             if (_routeDataProcessor.TryGetHttpAttribute(request, out Attribute? attribute))
             {
                 HttpGetAttribute? httpGetAttribute = attribute as HttpGetAttribute;
-                methodName = "Users/" + httpGetAttribute?.Path;
+                if (!string.IsNullOrEmpty(httpGetAttribute?.Path))
+                {
+                    methodName = controllerName + "/" + httpGetAttribute?.Path;
+                }
             }
 
             if (!_routeRegistry.TryGetRoute(methodName, out Func<object[], object?>? func))
             {
                 await responseWriter.WriteAsync(HttpStatusCode.NotFound, stream);
+                return;
             }
-            else
-            {
-                await responseWriter.WriteAsync(HttpStatusCode.OK, stream);
-                object[]? data = _routeDataProcessor.GetData(request, attribute);
-                await WriteControllerResponseAsync(func(data!),
+
+            await responseWriter.WriteAsync(HttpStatusCode.OK, stream);
+
+            object[]? data = _routeDataProcessor.GetData(request);
+
+            await WriteControllerResponseAsync(func(data!),
                                                    stream);
-            }
         }
         #endregion
 
         #region Write reponse
-        private void WriteControllerResponse(object? response, Stream stream)
-        {
-            if (response is string str)
-            {
-                using StreamWriter writer = new(stream, leaveOpen: true);
-                writer.Write(str);
-            }
-            else if (response is byte[] buffer)
-            {
-                stream.Write(buffer, 0, buffer.Length);
-            }
-            else
-            {
-                WriteControllerResponse(JsonConvert.SerializeObject(response), stream);
-            }
-        }
 
         private async Task WriteControllerResponseAsync(object? response, Stream stream)
         {
-            if (response is string str)
+            if (response == null) return;
+
+            switch (response)
             {
-                using StreamWriter writer = new(stream, leaveOpen: true);
-                await writer.WriteAsync(str);
-            }
-            else if (response is byte[] buffer)
-            {
-                await stream.WriteAsync(buffer, 0, buffer.Length);
-            }
-            else if (response is Task task)
-            {
-                TaskExtractor taskExtractor = new();
-                await task;
-                await WriteControllerResponseAsync(taskExtractor.ExtractValue(task)!, stream);
-            }
-            else
-            {
-                await WriteControllerResponseAsync(JsonConvert.SerializeObject(response), stream);
+                case string str:
+                    {
+                        using StreamWriter writer = new(stream, leaveOpen: true);
+                        await writer.WriteAsync(str);
+                        break;
+                    }
+
+                case byte[] buffer:
+                    await stream.WriteAsync(buffer, 0, buffer.Length);
+                    break;
+
+                case Task task:
+                    {
+                        TaskExtractor taskExtractor = new();
+                        await task;
+                        await WriteControllerResponseAsync(taskExtractor.ExtractValue(task)!, stream);
+                        break;
+                    }
+
+                default:
+                    await WriteControllerResponseAsync(JsonConvert.SerializeObject(response), stream);
+                    break;
             }
         }
         #endregion
@@ -115,5 +103,12 @@ namespace Server.Handlers
             _routeRegistry.AddTransient(typeInterface, type);
         }
         #endregion
+        private string ResolveMethodName(Request request)
+        {
+            var controllerName = request.ControllerName.Replace("Controller", "", StringComparison.OrdinalIgnoreCase);
+            return string.IsNullOrEmpty(request.MethodName)
+                ? $"/{controllerName}"
+                : $"/{controllerName}/{request.MethodName}";
+        }
     }
 }
