@@ -102,6 +102,14 @@ namespace Server.Handlers
         {
             _routeRegistry.AddTransient(typeInterface, type);
         }
+        public void AddSingleton<TInterface, TType>() where TInterface : class where TType : class
+        {
+            AddSingleton(typeof(TInterface), typeof(TType));
+        }
+        public void AddSingleton(Type typeInterface, Type type)
+        {
+            _routeRegistry.AddSingleton(typeInterface, type);
+        }
         #endregion
         private string ResolveMethodName(Request request)
         {

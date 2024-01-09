@@ -2,15 +2,12 @@
 namespace Server.Attributes
 {
     [AttributeUsage(AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
-    public class HttpGetAttribute : Attribute
+    public class HttpGetAttribute : BaseHttpMethodAttribute
     {
         public string Path { get; init; }
         public string MethodName { get; init; }
         public string[] MethodParameters { get; init; }
-        public HttpGetAttribute()
-        {
-            
-        }
+        public HttpGetAttribute(){}
         public HttpGetAttribute(string path)
         {
             Path = path;

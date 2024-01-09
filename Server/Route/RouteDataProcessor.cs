@@ -1,16 +1,23 @@
 ﻿using Server.Attributes;
+using Server.Interfaces;
+using Server.Route.RequestProccessors;
 using System.Reflection;
-using System.Text.Json;
-using System.Xml.Linq;
 
 namespace Server.Route
 {
     public class RouteDataProcessor
     {
         private readonly RouteRegistry _routeRegistry;
+        private readonly Dictionary<Type, IRequestProcessor> _requestProcessors;
+        private const string ControllerSuffix = "controller";
         public RouteDataProcessor(RouteRegistry routeRegistry)
         {
             _routeRegistry = routeRegistry;
+            _requestProcessors = new Dictionary<Type, IRequestProcessor>
+        {
+            { typeof(HttpGetAttribute), new HttpGetRequestProcessor() },
+            { typeof(HttpPostAttribute), new HttpPostRequestProcessor() }
+        };
         }
         public object[]? GetData(Request request)
         {
@@ -19,18 +26,14 @@ namespace Server.Route
                 return null;
             }
 
-            if (!TryGetHttpAttribute(method!, out Attribute? attribute))
-            {
-                return null;
-            }
+            var attributeType = method!.GetCustomAttributes()
+                                      .FirstOrDefault(attr => attr is BaseHttpMethodAttribute)?.GetType();
 
-            return attribute switch
+            if (attributeType != null && _requestProcessors.TryGetValue(attributeType, out IRequestProcessor? processor))
             {
-                HttpGetAttribute _ => ProcessGetRequest(request, method!),
-                HttpPostAttribute _ => ProcessPostRequest(request, method!),
-                // Add more cases as needed
-                _ => null
-            };
+                return processor.ProcessRequest(request, method!);
+            }
+            return null;
         }
 
         public bool TryGetHttpAttribute(Request request, out Attribute? attribute)
@@ -52,9 +55,9 @@ namespace Server.Route
         public bool TryGetMethod(string controllerName, string methodName, out MethodInfo? method)
         {
             method = null;
-            if (controllerName.EndsWith("controller", StringComparison.InvariantCultureIgnoreCase))
+            if (controllerName.EndsWith(ControllerSuffix, StringComparison.InvariantCultureIgnoreCase))
             {
-                controllerName = controllerName[..^"controller".Length];
+                controllerName = controllerName[..^ControllerSuffix.Length];
             }
 
             if (_routeRegistry.ControllerMethods.TryGetValue(controllerName, out Dictionary<string, MethodInfo>? controller))
@@ -66,40 +69,6 @@ namespace Server.Route
                 }
             }
             return false;
-        }
-        private object[] ProcessGetRequest(Request request, MethodInfo method)
-        {
-            ParameterInfo[] parameters = method.GetParameters();
-            object[] data = new object[parameters.Length];
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                data[i] = ParseParameter(parameters[i], request?.Data?[i]!);
-            }
-
-            return data;
-        }
-        private object[] ProcessPostRequest(Request request, MethodInfo method)
-        {
-            ParameterInfo[] parameters = method.GetParameters();
-            if (parameters.Length == 0)
-            {
-                return Array.Empty<object>();
-            }
-
-            Type parameterType = parameters[0].ParameterType;
-            object? deserializedData = JsonSerializer.Deserialize(request?.DataFromPost!, parameterType);
-
-            return new object[] { deserializedData! };
-        }
-        private object ParseParameter(ParameterInfo parameterInfo, object value)
-        {
-            return parameterInfo.ParameterType switch
-            {
-                Type t when t == typeof(int) => int.TryParse(value as string, out int intValue) ? intValue : default,
-                Type t when t == typeof(string) => value,
-                _ => null!
-            };
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Server.Interfaces.HandlersAndControllers;
 using Server.Models.Enum;
 using Server.Parser;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -33,6 +34,8 @@ namespace Server
         {
             TcpListener tcpListener = new(IPAddress.Any, port);
             tcpListener.Start();
+            await Console.Out.WriteLineAsync("Server started");
+            OpenBrowser($"http://localhost:{port}");
             while (true)
             {
                 TcpClient client = await tcpListener.AcceptTcpClientAsync();
@@ -107,6 +110,22 @@ namespace Server
             }
             return null;
         }
+        private void OpenBrowser(string url)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unable to open URL in browser: {ex.Message}");
+            }
+        }
+
     }
 
 }

@@ -7,7 +7,17 @@ namespace Server.Parser
     {
         public Request Parse(string header)
         {
+            if (string.IsNullOrEmpty(header))
+            {
+                throw new ArgumentNullException(nameof(header));
+            }
             string[] split = header.Trim().Split(" ");
+
+            if (split.Length < 2)
+            {
+                throw new FormatException("Header format is invalid");
+            }
+
             string method = split[0];
             string[] partUrl = split[1].Split("/").Skip(1).ToArray();
 
