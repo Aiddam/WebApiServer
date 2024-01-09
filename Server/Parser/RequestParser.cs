@@ -1,4 +1,5 @@
 ﻿using Server.Interfaces.Parsers;
+using Server.Models.Enum;
 
 namespace Server.Parser
 {
@@ -6,23 +7,33 @@ namespace Server.Parser
     {
         public Request Parse(string header)
         {
+            if (string.IsNullOrEmpty(header))
+            {
+                throw new ArgumentNullException(nameof(header));
+            }
             string[] split = header.Trim().Split(" ");
+
+            if (split.Length < 2)
+            {
+                throw new FormatException("Header format is invalid");
+            }
+
             string method = split[0];
             string[] partUrl = split[1].Split("/").Skip(1).ToArray();
 
             return new Request(split[1], GetControllerName(partUrl), GetMethod(method), GetMethodName(partUrl), GetDataFromHeader(partUrl));
         }
 
-        private static HttpMethod GetMethod(string method)
+        private static HttpActionType GetMethod(string method)
         {
             return method.Trim() switch
             {
-                "GET" => HttpMethod.Get,
-                "POST" => HttpMethod.Post,
-                "PUT" => HttpMethod.Put,
-                "DELETE" => HttpMethod.Delete,
-                "HEAD" => HttpMethod.Get,
-                _ => HttpMethod.Post,
+                "GET" => HttpActionType.Get,
+                "POST" => HttpActionType.Post,
+                "PUT" => HttpActionType.Put,
+                "DELETE" => HttpActionType.Delete,
+                "HEAD" => HttpActionType.Get,
+                _ => HttpActionType.Get,
             };
         }
 

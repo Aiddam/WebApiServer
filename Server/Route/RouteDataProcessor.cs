@@ -1,4 +1,6 @@
 ﻿using Server.Attributes;
+using Server.Interfaces;
+using Server.Route.RequestProccessors;
 using System.Reflection;
 
 namespace Server.Route
@@ -6,44 +8,32 @@ namespace Server.Route
     public class RouteDataProcessor
     {
         private readonly RouteRegistry _routeRegistry;
+        private readonly Dictionary<Type, IRequestProcessor> _requestProcessors;
+        private const string ControllerSuffix = "controller";
         public RouteDataProcessor(RouteRegistry routeRegistry)
         {
             _routeRegistry = routeRegistry;
-        }
-        public object[]? GetData(Request request, Attribute? attribute)
+            _requestProcessors = new Dictionary<Type, IRequestProcessor>
         {
-            _ = TryGetMethod(request.ControllerName, request.MethodName, out MethodInfo? method);
-            ParameterInfo[]? parameters = method?.GetParameters();
-
-            if (parameters == null)
+            { typeof(HttpGetAttribute), new HttpGetRequestProcessor() },
+            { typeof(HttpPostAttribute), new HttpPostRequestProcessor() }
+        };
+        }
+        public object[]? GetData(Request request)
+        {
+            if (!TryGetMethod(request.ControllerName, request.MethodName, out MethodInfo? method))
             {
                 return null;
             }
 
-            object[] data = new object[parameters.Length];
+            var attributeType = method!.GetCustomAttributes()
+                                      .FirstOrDefault(attr => attr is BaseHttpMethodAttribute)?.GetType();
 
-            switch (attribute)
+            if (attributeType != null && _requestProcessors.TryGetValue(attributeType, out IRequestProcessor? processor))
             {
-                case HttpGetAttribute:
-                    HttpGetAttribute? httpGetAttribute = attribute as HttpGetAttribute;
-                    _ = httpGetAttribute?.MethodParameters;
-
-                    for (int parameter = 0; parameter < request?.Data?.Length; parameter++)
-                    {
-                        if (parameters[parameter].ParameterType == typeof(int))
-                        {
-                            _ = int.TryParse((string)request.Data[parameter], out int value);
-                            data[parameter] = value;
-                        }
-                        else if (parameters[parameter].ParameterType == typeof(string))
-                        {
-                            data[parameter] = request.Data[parameter];
-                        }
-                    }
-                    break;
+                return processor.ProcessRequest(request, method!);
             }
-
-            return data;
+            return null;
         }
 
         public bool TryGetHttpAttribute(Request request, out Attribute? attribute)
@@ -52,19 +42,23 @@ namespace Server.Route
 
             if (TryGetMethod(request.ControllerName, request.MethodName, out MethodInfo? method))
             {
-                IEnumerable<Attribute>? MethodAtributtes = method?.GetCustomAttributes();
-                if (MethodAtributtes!.Any(m => m.GetType() == typeof(HttpGetAttribute)))
-                {
-                    attribute = method?.GetCustomAttribute<HttpGetAttribute>();
-                    return true;
-                }
-                //TODO other methods
+                _ = TryGetHttpAttribute(method!, out attribute);
             }
             return false;
+        }
+        private bool TryGetHttpAttribute(MethodInfo method, out Attribute? attribute)
+        {
+            attribute = method.GetCustomAttributes()
+                              .FirstOrDefault(attr => attr is HttpGetAttribute or HttpPostAttribute);
+            return attribute != null;
         }
         public bool TryGetMethod(string controllerName, string methodName, out MethodInfo? method)
         {
             method = null;
+            if (controllerName.EndsWith(ControllerSuffix, StringComparison.InvariantCultureIgnoreCase))
+            {
+                controllerName = controllerName[..^ControllerSuffix.Length];
+            }
 
             if (_routeRegistry.ControllerMethods.TryGetValue(controllerName, out Dictionary<string, MethodInfo>? controller))
             {
