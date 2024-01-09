@@ -1,11 +1,13 @@
-﻿using Server.Interfaces.HandlersAndControllers;
+﻿using Server.Delegates;
+using Server.Interfaces;
+using Server.Interfaces.HandlersAndControllers;
+using Server.Middlewares;
+using Server.Models;
 using Server.Models.Enum;
 using Server.Parser;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Text.Json;
 
 namespace Server
 {
@@ -14,9 +16,11 @@ namespace Server
     {
         private const int port = 80;
         private readonly IHandler _handler;
+        public List<MiddlewareDelegate> middlewares = new List<MiddlewareDelegate>();
         public ServerHost(IHandler handler)
         {
             _handler = handler;
+            middlewares = new();
         }
 
         public void Start()
@@ -32,6 +36,7 @@ namespace Server
 
         public async Task StartAsync()
         {
+            UseMiddleware(() => new FinalMiddleware(_handler));
             TcpListener tcpListener = new(IPAddress.Any, port);
             tcpListener.Start();
             await Console.Out.WriteLineAsync("Server started");
@@ -43,6 +48,11 @@ namespace Server
             }
         }
 
+        public void UseMiddleware<T>(Func<T> factory) where T : IMiddleware
+        {
+            MiddlewareDelegate middlewareDelegate = (context, next) => factory().InvokeAsync(context, next);
+            middlewares.Add(middlewareDelegate);
+        }
         private async ValueTask ProcessClientAsync(TcpClient client)
         {
             using (client)
@@ -63,20 +73,13 @@ namespace Server
                         string postData = await ReadPostDataAsync(reader);
                         request.DataFromPost = postData.Substring(0);
 
-                        break;  
+                        break;
                     default:
                         for (string? line = null; line != string.Empty; line = await reader.ReadLineAsync()) { };
                         break;
                 }
 
-                try
-                {
-                    await _handler.HandleAsync(stream, request);
-                }
-                catch (Exception ex)
-                {
-                    await Console.Out.WriteLineAsync(ex.ToString());
-                }
+                await RunMiddlewares(request, stream);
             }
         }
         private async Task<string> ReadPostDataAsync(StreamReader reader)
@@ -124,6 +127,18 @@ namespace Server
             {
                 Console.WriteLine($"Unable to open URL in browser: {ex.Message}");
             }
+        }
+        private async Task RunMiddlewares(Request request, NetworkStream stream)
+        {
+            Func<Task> next = () => Task.CompletedTask;
+            var context = new ServerContext(request, stream);
+            foreach (var middleware in middlewares.AsEnumerable().Reverse())
+            {
+                var current = next;
+                next = () => middleware(context, current);
+            }
+
+            await next();
         }
 
     }
