@@ -15,7 +15,7 @@ namespace Server.Extractors
         /// <param name="type">Type of object to be created</param>
         /// <param name="arguments">Parameters to pass to the class constructor</param>
         /// <param name="lifetimeScopedTypes">List of dependencies that have been transferred</param>
-        /// <returns></returns>
+        /// <returns>An instance of the specified type.</returns>
         public object CreateInstance(Type type, Type[]? arguments, Dictionary<Type, Tuple<LifeTime, Type>> lifetimeScopedTypes)
         {
             if (!_activators.TryGetValue(type, out Func<object>? activator))
@@ -27,6 +27,13 @@ namespace Server.Extractors
             return activator!();
         }
 
+        /// <summary>
+        /// Creates an activator function for a specified type.
+        /// </summary>
+        /// <param name="type">The type for which to create the activator.</param>
+        /// <param name="arguments">Constructor parameters for the type.</param>
+        /// <param name="lifetimeScopedTypes">Dependencies with their lifetimes and corresponding types.</param>
+        /// <returns>A function that creates an instance of the specified type.</returns>
         private Func<object>? CreateActivator(Type type, Type[]? arguments, Dictionary<Type, Tuple<LifeTime, Type>> lifetimeScopedTypes)
         {
             ConstructorInfo constructor = GetConstructorInfo(type);
@@ -35,6 +42,13 @@ namespace Server.Extractors
             var lambda = Expression.Lambda<Func<object>>(Expression.New(constructor, expressionList));
             return lambda.Compile();
         }
+
+        /// <summary>
+        /// Generates a list of expressions representing constructor parameters.
+        /// </summary>
+        /// <param name="arguments">Constructor parameter types.</param>
+        /// <param name="types">Dependencies with their lifetimes and corresponding types.</param>
+        /// <returns>A list of expressions for the constructor parameters.</returns>
         private List<Expression> GetExpressions(Type[]? arguments, Dictionary<Type, Tuple<LifeTime, Type>> types)
         {
             List<Expression> expressionList = new(arguments!.Length);
@@ -60,6 +74,11 @@ namespace Server.Extractors
             return expressionList;
         }
 
+        /// <summary>
+        /// Retrieves the constructor information for a given type from the cache, or finds it.
+        /// </summary>
+        /// <param name="type">The type for which to retrieve constructor information.</param>
+        /// <returns>The constructor information for the given type.</returns>
         private ConstructorInfo GetConstructorInfo(Type type)
         {
             if (!_constructorCache.TryGetValue(type, out ConstructorInfo? constructor))
@@ -72,10 +91,22 @@ namespace Server.Extractors
             return constructor;
         }
 
+        /// <summary>
+        /// Retrieves constructor information for a given type with specified parameters.
+        /// </summary>
+        /// <param name="type">The type for which to retrieve constructor information.</param>
+        /// <param name="parameters">Parameters for the constructor.</param>
+        /// <returns>The constructor information for the given type and parameters.</returns>
         private ConstructorInfo GetConstructorInfo(Type type, Type[] parameters)
         {
             return type.GetConstructor(BindingFlags.Instance | BindingFlags.Public, parameters)!;
         }
+
+        /// <summary>
+        /// Retrieves the types of the parameters for a constructor of the given type.
+        /// </summary>
+        /// <param name="type">The type for which to retrieve parameter types.</param>
+        /// <returns>An array of types representing the parameters of the constructor.</returns>
         private Type[] GetParameters(Type type)
         {
             var constructor = type.GetConstructors().FirstOrDefault();
