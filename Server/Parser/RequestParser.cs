@@ -1,5 +1,6 @@
 ﻿using Server.Interfaces.Parsers;
 using Server.Models.Enum;
+using System.Net;
 
 namespace Server.Parser
 {
@@ -9,19 +10,25 @@ namespace Server.Parser
         {
             if (string.IsNullOrEmpty(header))
             {
-                throw new ArgumentNullException(nameof(header));
+                throw new ArgumentNullException(nameof(header), "Header cannot be null or empty.");
             }
-            string[] split = header.Trim().Split(" ");
+            string[] split = header.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
             if (split.Length < 2)
             {
-                throw new FormatException("Header format is invalid");
+                throw new FormatException("Header format is invalid. Expected at least two parts.");
             }
 
             string method = split[0];
-            string[] partUrl = split[1].Split("/").Skip(1).ToArray();
+            string url = WebUtility.UrlDecode(split[1]);
+            string[] pathSegments = url.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
-            return new Request(split[1], GetControllerName(partUrl), GetMethod(method), GetMethodName(partUrl), GetDataFromHeader(partUrl));
+            return new Request(
+                url,
+                GetControllerName(pathSegments),
+                GetMethod(method),
+                GetMethodName(pathSegments),
+                GetDataFromHeader(pathSegments));
         }
 
         private static HttpActionType GetMethod(string method)
@@ -33,7 +40,7 @@ namespace Server.Parser
                 "PUT" => HttpActionType.Put,
                 "DELETE" => HttpActionType.Delete,
                 "HEAD" => HttpActionType.Get,
-                _ => HttpActionType.Get,
+                _ => throw new NotSupportedException($"Unsupported HTTP method: {method}"),
             };
         }
 

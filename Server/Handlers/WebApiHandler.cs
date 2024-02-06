@@ -16,6 +16,7 @@ namespace Server.Handlers
         #region fields and ctor
         private readonly RouteRegistry _routeRegistry;
         private readonly RouteDataProcessor _routeDataProcessor;
+        private const string CONTROLLER_PREFIX = "Controller";
         public WebApiHandler(Assembly controllersAssembly)
         {
             _routeRegistry = new RouteRegistry(controllersAssembly);
@@ -29,8 +30,7 @@ namespace Server.Handlers
         {
             ResponseWriter responseWriter = new();
 
-            string pattern = "Controller";
-            string controllerName = Regex.Replace(request.ControllerName, pattern, "", RegexOptions.IgnoreCase);
+            string controllerName = Regex.Replace(request.ControllerName, CONTROLLER_PREFIX, "", RegexOptions.IgnoreCase);
 
             var methodName = ResolveMethodName(request);
 
@@ -113,7 +113,7 @@ namespace Server.Handlers
         #endregion
         private string ResolveMethodName(Request request)
         {
-            var controllerName = request.ControllerName.Replace("Controller", "", StringComparison.OrdinalIgnoreCase);
+            var controllerName = request.ControllerName.Replace(CONTROLLER_PREFIX, "", StringComparison.OrdinalIgnoreCase);
             return string.IsNullOrEmpty(request.MethodName)
                 ? $"/{controllerName}"
                 : $"/{controllerName}/{request.MethodName}";

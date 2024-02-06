@@ -8,6 +8,7 @@ using Server.Parser;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using WebServer.Middlewares;
 
 namespace Server
 {
@@ -17,25 +18,19 @@ namespace Server
         private const int port = 80;
         private readonly IHandler _handler;
         public List<MiddlewareDelegate> middlewares = new List<MiddlewareDelegate>();
+        public bool IsLoggingEnabled { get; set; } = true;
         public ServerHost(IHandler handler)
         {
             _handler = handler;
             middlewares = new();
         }
 
-        public void Start()
-        {
-            TcpListener tcpListener = new(IPAddress.Any, port);
-            tcpListener.Start();
-            while (true)
-            {
-                TcpClient client = tcpListener.AcceptTcpClient();
-                _ = ProcessClientAsync(client);
-            }
-        }
-
         public async Task StartAsync()
         {
+            if (IsLoggingEnabled)
+            {
+                UseMiddleware(() => new LogMiddleware());
+            }
             UseMiddleware(() => new FinalMiddleware(_handler));
             TcpListener tcpListener = new(IPAddress.Any, port);
             tcpListener.Start();
@@ -90,7 +85,10 @@ namespace Server
                 throw new InvalidOperationException("Content-Length header is missing in the POST request.");
             }
 
-            int.TryParse(contentLengthLine, out int contentLength);
+            if (!int.TryParse(contentLengthLine, out int contentLength))
+            {
+                throw new InvalidOperationException("Invalid Content-Length value.");
+            }
 
             char[] buffer = new char[contentLength];
             int readLength = await reader.ReadAsync(buffer, 0, contentLength);
@@ -132,6 +130,7 @@ namespace Server
         {
             Func<Task> next = () => Task.CompletedTask;
             var context = new ServerContext(request, stream);
+
             foreach (var middleware in middlewares.AsEnumerable().Reverse())
             {
                 var current = next;
