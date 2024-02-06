@@ -9,6 +9,7 @@ namespace WebServer.Controllers
         private static List<Item> items = new List<Item>();
         public string Index()
         {
+            throw new Exception("Test");
             return "Get Index";
         }
         [HttpGet]

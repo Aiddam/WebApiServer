@@ -1,8 +1,8 @@
 ﻿using Server.Attributes;
 using Server.Extractors;
 using Server.Interfaces.HandlersAndControllers;
+using Server.Models.Enum;
 using System.Reflection;
-using System.Xml.Linq;
 
 public class RouteRegistry
 {
@@ -12,7 +12,7 @@ public class RouteRegistry
     public IReadOnlyDictionary<string, Dictionary<string, MethodInfo>> ControllerMethods => _controllerMethods;
 
     private readonly InstanceCreator _instanceCreator;
-    public Dictionary<Type, Type> Types;
+    private Dictionary<Type, Tuple<LifeTime,Type>> _lifetimeScopedTypes;
 
     public RouteRegistry(Assembly controllersAssembly)
     {
@@ -20,7 +20,7 @@ public class RouteRegistry
         _controllerMethods = new Dictionary<string, Dictionary<string, MethodInfo>>();
         _routes = CreateRouteDictionary(controllersAssembly);
 
-        Types = new Dictionary<Type, Type>();
+        _lifetimeScopedTypes = new();
     }
 
     public bool TryGetRoute(string path, out Func<object[], object?>? route)
@@ -37,7 +37,7 @@ public class RouteRegistry
         {
             types[parametr] = parameters[parametr].ParameterType;
         }
-        return (data) => method.Invoke(_instanceCreator.CreateInstance(controller, types, Types), data);
+        return (data) => method.Invoke(_instanceCreator.CreateInstance(controller, types, _lifetimeScopedTypes), data);
     }
     private string GetPathForInstance(Type controller, MethodInfo method)
     {
@@ -78,7 +78,7 @@ public class RouteRegistry
     }
     #endregion
 
-
+    #region container
     public void AddTransient<TInterface, TType>() where TInterface : class where TType : class
     {
         AddTransient(typeof(TInterface), typeof(TType));
@@ -86,9 +86,18 @@ public class RouteRegistry
 
     public void AddTransient(Type typeInterface, Type type)
     {
-        Types.Add(typeInterface, type);
+        _lifetimeScopedTypes.Add(typeInterface, Tuple.Create(LifeTime.Transient, type));
+    }
+    public void AddSingleton<TInterface, TType>() where TInterface : class where TType : class
+    {
+        AddSingleton(typeof(TInterface), typeof(TType));
     }
 
+    public void AddSingleton(Type typeInterface, Type type)
+    {
+        _lifetimeScopedTypes.Add(typeInterface, Tuple.Create(LifeTime.Singleton, type));
+    }
+    #endregion
     private Dictionary<string, Func<object[], object?>> CreateRouteDictionary(Assembly controllersAssembly)
     {
         return controllersAssembly.GetTypes()

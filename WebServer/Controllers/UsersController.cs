@@ -12,25 +12,30 @@ namespace WebServer.Controllers
         {
             _userRepository = userRepository;
         }
-        public User[] Index()
+        public ICollection<User> Index()
         {
             return _userRepository.GetUsers();
         }
-        public Task<User[]> IndexAsync()
+        public Task<ICollection<User>> IndexAsync()
         {
             return Task.Run(() =>
             {
-                User[] users = _userRepository.GetUsers();
+                ICollection<User> users = _userRepository.GetUsers();
                 return users;
             });
         }
+        [HttpPost]
+        public void AddUser(User user)
+        {
+            _userRepository.AddUser(user);
+        }
 
-        [HttpGet()]
+        [HttpGet]
         public Task<User>? GetUser(int id)
         {
             return Task.Run(() =>
             {
-                User[] users = _userRepository.GetUsers();
+                ICollection<User> users = _userRepository.GetUsers();
                 return users.FirstOrDefault(u => u.Id == id);
             });
         }

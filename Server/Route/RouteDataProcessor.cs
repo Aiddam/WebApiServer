@@ -1,36 +1,41 @@
 ﻿using Server.Attributes;
+using Server.Interfaces;
+using Server.Route.RequestProccessors;
 using System.Reflection;
-using System.Text.Json;
-using System.Xml.Linq;
 
 namespace Server.Route
 {
     public class RouteDataProcessor
     {
         private readonly RouteRegistry _routeRegistry;
+        private readonly Dictionary<Type, IRequestProcessor> _requestProcessors;
+        private const string CONTROLLER_SUFFIX = "controller";
         public RouteDataProcessor(RouteRegistry routeRegistry)
         {
             _routeRegistry = routeRegistry;
+            _requestProcessors = new Dictionary<Type, IRequestProcessor>
+            {
+                { typeof(HttpGetAttribute), new HttpGetRequestProcessor() },
+                { typeof(HttpPostAttribute), new HttpPostRequestProcessor() }
+            };
         }
         public object[]? GetData(Request request)
         {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+
             if (!TryGetMethod(request.ControllerName, request.MethodName, out MethodInfo? method))
             {
                 return null;
             }
 
-            if (!TryGetHttpAttribute(method!, out Attribute? attribute))
-            {
-                return null;
-            }
+            var attributeType = method!.GetCustomAttributes()
+                                      .FirstOrDefault(attr => attr is BaseHttpMethodAttribute)?.GetType();
 
-            return attribute switch
+            if (attributeType != null && _requestProcessors.TryGetValue(attributeType, out IRequestProcessor? processor))
             {
-                HttpGetAttribute _ => ProcessGetRequest(request, method!),
-                HttpPostAttribute _ => ProcessPostRequest(request, method!),
-                // Add more cases as needed
-                _ => null
-            };
+                return processor.ProcessRequest(request, method!);
+            }
+            return null;
         }
 
         public bool TryGetHttpAttribute(Request request, out Attribute? attribute)
@@ -49,57 +54,20 @@ namespace Server.Route
                               .FirstOrDefault(attr => attr is HttpGetAttribute or HttpPostAttribute);
             return attribute != null;
         }
+
         public bool TryGetMethod(string controllerName, string methodName, out MethodInfo? method)
         {
             method = null;
-            if (controllerName.EndsWith("controller", StringComparison.InvariantCultureIgnoreCase))
-            {
-                controllerName = controllerName[..^"controller".Length];
-            }
+            string cleanControllerName = controllerName.EndsWith(CONTROLLER_SUFFIX, StringComparison.InvariantCultureIgnoreCase)
+                                         ? controllerName[..^CONTROLLER_SUFFIX.Length]
+                                         : controllerName;
 
-            if (_routeRegistry.ControllerMethods.TryGetValue(controllerName, out Dictionary<string, MethodInfo>? controller))
+            if (_routeRegistry.ControllerMethods.TryGetValue(cleanControllerName, out Dictionary<string, MethodInfo>? methods) &&
+                methods.TryGetValue(methodName, out method))
             {
-                if (controller.TryGetValue(methodName, out MethodInfo? controllerMethod))
-                {
-                    method = controllerMethod;
-                    return true;
-                }
+                return true;
             }
             return false;
-        }
-        private object[] ProcessGetRequest(Request request, MethodInfo method)
-        {
-            ParameterInfo[] parameters = method.GetParameters();
-            object[] data = new object[parameters.Length];
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                data[i] = ParseParameter(parameters[i], request?.Data?[i]!);
-            }
-
-            return data;
-        }
-        private object[] ProcessPostRequest(Request request, MethodInfo method)
-        {
-            ParameterInfo[] parameters = method.GetParameters();
-            if (parameters.Length == 0)
-            {
-                return Array.Empty<object>();
-            }
-
-            Type parameterType = parameters[0].ParameterType;
-            object? deserializedData = JsonSerializer.Deserialize(request?.DataFromPost!, parameterType);
-
-            return new object[] { deserializedData! };
-        }
-        private object ParseParameter(ParameterInfo parameterInfo, object value)
-        {
-            return parameterInfo.ParameterType switch
-            {
-                Type t when t == typeof(int) => int.TryParse(value as string, out int intValue) ? intValue : default,
-                Type t when t == typeof(string) => value,
-                _ => null!
-            };
         }
     }
 }

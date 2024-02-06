@@ -1,24 +1,26 @@
-﻿using WebServer.Models;
+﻿using Server.Attributes;
+using WebServer.Models;
 
 namespace WebServer.Repositories
 {
     public interface IUserRepository
     {
-        User[] GetUsers();
+        ICollection<User> GetUsers();
+        void AddUser(User user);
     }
     public class UserRepository : IUserRepository
     {
-        public int MyProperty { get; set; }
-        public User[] GetUsers()
+        private static IList<User> _users = new List<User>();
+        [HttpPost]
+        public void AddUser(User user)
         {
-            return new User[]
-            {
-                new User("Anton", "Sharlai", 19, 1),
-                new User("Evgeniy", "Zhuravel", 19, 2),
-                new User("Alex", "Tyrchin", 19, 3),
-                new User("Dima", "Gorbotenko", 19, 4),
-                new User("Pavel", "Archipov", 20, 5)
-            };
+            _users.Add(user);
+        }
+
+        [HttpGet]
+        public ICollection<User> GetUsers()
+        {
+            return _users;
         }
     }
 }
